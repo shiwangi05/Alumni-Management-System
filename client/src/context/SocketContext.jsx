@@ -11,7 +11,7 @@ export const SocketProvider = ({ children }) => {
     const { user } = useAuth();
 
     useEffect(() => {
-        const newSocket = io('http://localhost:5000');
+        const newSocket = io('https://alumni-management-system-3.onrender.com');
         setSocket(newSocket);
 
         return () => newSocket.close();

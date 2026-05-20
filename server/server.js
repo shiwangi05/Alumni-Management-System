@@ -20,8 +20,13 @@ const server = http.createServer(app);
 // Setup Socket.io
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173", // Vite default port
-        methods: ["GET", "POST"]
+        origin: [
+            'http://localhost:5173',
+            'http://localhost:3000',
+            /\.vercel\.app$/,
+        ],
+        methods: ["GET", "POST"],
+        credentials: true,
     }
 });
 
@@ -45,7 +50,26 @@ io.on('connection', (socket) => {
 
 // Middleware
 app.use(helmet()); // Set security HTTP headers
-app.use(cors());
+
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    /\.vercel\.app$/,   // any *.vercel.app domain
+];
+
+app.use(cors({
+    origin: (origin, callback) => {
+        // allow requests with no origin (mobile apps, curl, Render health checks)
+        if (!origin) return callback(null, true);
+        const allowed = allowedOrigins.some(o =>
+            typeof o === 'string' ? o === origin : o.test(origin)
+        );
+        if (allowed) return callback(null, true);
+        return callback(new Error(`CORS: origin '${origin}' not allowed`));
+    },
+    credentials: true,
+}));
+
 app.use(express.json());
 
 // Rate limiting
