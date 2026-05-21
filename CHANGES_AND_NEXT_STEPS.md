@@ -88,7 +88,7 @@ DELETE /api/mentorship/:id/messages-only
 - Updated `client/src/App.jsx`.
 - Added `client/src/pages/VerifyOtp.jsx`.
 
-Registration now sends a 6-digit OTP by email. Users do not receive a token until they verify the OTP.
+OTP support still exists in the codebase, but it is temporarily bypassed so production registration works before email is configured on Render. New users are created with `isVerified: true`, and registration returns the JWT immediately.
 
 New backend routes:
 
@@ -97,11 +97,12 @@ POST /api/auth/verify-otp
 POST /api/auth/resend-otp
 ```
 
-Existing protected routes now block unverified users with:
+Protected routes no longer block unverified users while OTP is disabled.
 
-```js
-{ message: 'Please verify your email first.' }
-```
+### 8. Render Trust Proxy
+
+- Updated `server/server.js`.
+- Added `app.set('trust proxy', 1);` so Express rate limiting works correctly behind Render's proxy.
 
 ### 7. Environment And Ignore Files
 
@@ -169,7 +170,7 @@ Admin updated: your-admin-email
 
 ### 3. Verify Existing Users In MongoDB
 
-Existing users created before this change do not have `isVerified: true`.
+Existing users created before the OTP change may not have `isVerified: true`. OTP is currently bypassed, so this is not blocking login right now, but setting it keeps the database consistent.
 
 For a local MongoDB database, run this in Mongo shell or MongoDB Compass:
 
@@ -231,10 +232,7 @@ Then deploy frontend because pages and environment-driven socket/API behavior ch
 
 ### 7. Test These Flows After Deploy
 
-- Register a new student.
-- Confirm OTP email arrives.
-- Verify OTP.
-- Login after verification.
+- Register a new student and confirm it logs in immediately.
 - Apply to an approved job as a student.
 - View applicants as the job poster.
 - Open notifications and click `Load more`.
@@ -258,6 +256,7 @@ Then deploy frontend because pages and environment-driven socket/API behavior ch
 - `server/routes/auth.js`
 - `server/routes/jobs.js`
 - `server/routes/mentorship.js`
+- `server/server.js`
 - `server/seed.js`
 - `server/utils/email.js`
 - `server/.env.example`

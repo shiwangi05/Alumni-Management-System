@@ -50,11 +50,7 @@ export const AuthProvider = ({ children }) => {
 
     const register = async (data) => {
         const res = await api.post('/auth/register', data);
-        return res.data;
-    };
-
-    const completeAuth = (data) => {
-        const { token: newToken, ...userData } = data;
+        const { token: newToken, ...userData } = res.data;
         localStorage.setItem('token', newToken);
         localStorage.setItem('user', JSON.stringify(userData));
         setToken(newToken);
@@ -64,7 +60,12 @@ export const AuthProvider = ({ children }) => {
 
     const verifyOtp = async (userId, otp) => {
         const res = await api.post('/auth/verify-otp', { userId, otp });
-        return completeAuth(res.data);
+        const { token: newToken, ...userData } = res.data;
+        localStorage.setItem('token', newToken);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setToken(newToken);
+        setUser(userData);
+        return userData;
     };
 
     const resendOtp = async (userId) => {
