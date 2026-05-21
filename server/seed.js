@@ -21,6 +21,10 @@ const seedAdmin = async () => {
             adminExists.name = ADMIN_NAME || adminExists.name || 'System Admin';
             adminExists.email = ADMIN_EMAIL;
             adminExists.password = ADMIN_PASSWORD;
+            adminExists.isVerified = true;
+            adminExists.verificationOTP = undefined;
+            adminExists.verificationOTPExpires = undefined;
+            adminExists.verificationOTPSentAt = undefined;
             await adminExists.save();
 
             console.log(`Admin updated: ${adminExists.email}`);
@@ -32,6 +36,7 @@ const seedAdmin = async () => {
             email: ADMIN_EMAIL,
             password: ADMIN_PASSWORD,
             role: 'admin',
+            isVerified: true,
         });
 
         console.log(`Admin created: ${admin.email}`);

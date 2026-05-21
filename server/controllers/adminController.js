@@ -1,6 +1,10 @@
 const User = require('../models/User');
 const MentorshipRequest = require('../models/MentorshipRequest');
 const Message = require('../models/Message');
+const Event = require('../models/Event');
+const Story = require('../models/Story');
+const JobPost = require('../models/JobPost');
+const Notification = require('../models/Notification');
 
 // @desc    Get admin dashboard stats
 // @route   GET /api/admin/stats
@@ -99,13 +103,24 @@ exports.deleteUser = async (req, res) => {
             return res.status(400).json({ message: 'Cannot delete admin accounts' });
         }
 
-        // Clean up related data
-        await MentorshipRequest.deleteMany({
-            $or: [{ student: user._id }, { alumni: user._id }],
-        });
-        await Message.deleteMany({
-            $or: [{ sender: user._id }, { receiver: user._id }],
-        });
+        // Clean up related data and references.
+        await Promise.all([
+            MentorshipRequest.deleteMany({
+                $or: [{ student: user._id }, { alumni: user._id }],
+            }),
+            Message.deleteMany({
+                $or: [{ sender: user._id }, { receiver: user._id }],
+            }),
+            Event.deleteMany({ createdBy: user._id }),
+            Event.updateMany({}, { $pull: { rsvps: { user: user._id } } }),
+            Story.deleteMany({ author: user._id }),
+            Story.updateMany({}, { $pull: { likes: user._id, comments: { user: user._id } } }),
+            JobPost.deleteMany({ postedBy: user._id }),
+            JobPost.updateMany({}, { $pull: { applicants: { user: user._id } } }),
+            Notification.deleteMany({
+                $or: [{ recipient: user._id }, { sender: user._id }],
+            }),
+        ]);
 
         await User.findByIdAndDelete(req.params.id);
 
@@ -160,56 +175,81 @@ exports.getAnalytics = async (req, res) => {
             });
         }
 
-        // Get actual User Growth by aggregating over the last 6 months
-        const userGrowth = await Promise.all(
-            last6Months.map(async (m) => {
-                const startDate = new Date(m.year, m.monthIndex, 1);
-                const endDate = new Date(m.year, m.monthIndex + 1, 0, 23, 59, 59, 999);
+        const rangeStart = new Date(last6Months[0].year, last6Months[0].monthIndex, 1);
+        const monthKey = (year, month) => `${year}-${month}`;
 
-                const students = await User.countDocuments({
-                    role: 'student',
-                    createdAt: { $gte: startDate, $lte: endDate }
-                });
+        const [userGrowthRows, mentorshipRows, roleRows] = await Promise.all([
+            User.aggregate([
+                {
+                    $match: {
+                        role: { $in: ['student', 'alumni'] },
+                        createdAt: { $gte: rangeStart },
+                    },
+                },
+                {
+                    $group: {
+                        _id: {
+                            year: { $year: '$createdAt' },
+                            month: { $month: '$createdAt' },
+                            role: '$role',
+                        },
+                        count: { $sum: 1 },
+                    },
+                },
+            ]),
+            MentorshipRequest.aggregate([
+                { $match: { createdAt: { $gte: rangeStart } } },
+                {
+                    $group: {
+                        _id: {
+                            year: { $year: '$createdAt' },
+                            month: { $month: '$createdAt' },
+                        },
+                        count: { $sum: 1 },
+                    },
+                },
+            ]),
+            User.aggregate([
+                { $group: { _id: '$role', count: { $sum: 1 } } },
+            ]),
+        ]);
 
-                const alumni = await User.countDocuments({
-                    role: 'alumni',
-                    createdAt: { $gte: startDate, $lte: endDate }
-                });
+        const userGrowthMap = new Map();
+        userGrowthRows.forEach((row) => {
+            userGrowthMap.set(
+                `${monthKey(row._id.year, row._id.month)}-${row._id.role}`,
+                row.count
+            );
+        });
 
-                return {
-                    name: m.name,
-                    students,
-                    alumni
-                };
-            })
-        );
+        const mentorshipMap = new Map();
+        mentorshipRows.forEach((row) => {
+            mentorshipMap.set(monthKey(row._id.year, row._id.month), row.count);
+        });
 
-        // Get actual Mentorship trends
-        const mentorshipTrends = await Promise.all(
-            last6Months.map(async (m) => {
-                const startDate = new Date(m.year, m.monthIndex, 1);
-                const endDate = new Date(m.year, m.monthIndex + 1, 0, 23, 59, 59, 999);
+        const roleMap = new Map(roleRows.map((row) => [row._id, row.count]));
 
-                const requests = await MentorshipRequest.countDocuments({
-                    createdAt: { $gte: startDate, $lte: endDate }
-                });
+        const userGrowth = last6Months.map((m) => {
+            const key = monthKey(m.year, m.monthIndex + 1);
+            return {
+                name: m.name,
+                students: userGrowthMap.get(`${key}-student`) || 0,
+                alumni: userGrowthMap.get(`${key}-alumni`) || 0,
+            };
+        });
 
-                return {
-                    name: m.name,
-                    requests
-                };
-            })
-        );
-
-        // Fetch actual current aggregates
-        const totalAlumni = await User.countDocuments({ role: 'alumni' });
-        const totalStudents = await User.countDocuments({ role: 'student' });
-        const totalAdmins = await User.countDocuments({ role: 'admin' });
+        const mentorshipTrends = last6Months.map((m) => {
+            const key = monthKey(m.year, m.monthIndex + 1);
+            return {
+                name: m.name,
+                requests: mentorshipMap.get(key) || 0,
+            };
+        });
 
         const roleDistribution = [
-            { name: 'Alumni', value: totalAlumni },
-            { name: 'Students', value: totalStudents },
-            { name: 'Admins', value: totalAdmins }
+            { name: 'Alumni', value: roleMap.get('alumni') || 0 },
+            { name: 'Students', value: roleMap.get('student') || 0 },
+            { name: 'Admins', value: roleMap.get('admin') || 0 }
         ];
 
         res.json({

@@ -48,6 +48,22 @@ const userSchema = new mongoose.Schema(
         // ── Shared ──
         bio: { type: String, maxlength: 500 },
         phone: { type: String, trim: true },
+        isVerified: {
+            type: Boolean,
+            default: false,
+        },
+        verificationOTP: {
+            type: String,
+            select: false,
+        },
+        verificationOTPExpires: {
+            type: Date,
+            select: false,
+        },
+        verificationOTPSentAt: {
+            type: Date,
+            select: false,
+        },
     },
     { timestamps: true }
 );

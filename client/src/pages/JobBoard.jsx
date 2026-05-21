@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
@@ -12,10 +12,15 @@ const JobBoard = () => {
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [toast, setToast] = useState('');
+    const [applyJob, setApplyJob] = useState(null);
+    const [coverNote, setCoverNote] = useState('');
+    const [applicantsJob, setApplicantsJob] = useState(null);
+    const [applicants, setApplicants] = useState([]);
+    const [modalLoading, setModalLoading] = useState(false);
 
     useEffect(() => {
         fetchJobs();
-    }, [page, type]); // re-fetch when page or type filter changes
+    }, [page, type]);
 
     const fetchJobs = async () => {
         setLoading(true);
@@ -28,10 +33,32 @@ const JobBoard = () => {
             setJobs(res.data.jobs);
             setTotalPages(res.data.totalPages);
         } catch (error) {
-            console.error(error);
+            showToast(error.response?.data?.message || 'Failed to load jobs');
         } finally {
             setLoading(false);
         }
+    };
+
+    const showToast = (msg) => {
+        setToast(msg);
+        setTimeout(() => setToast(''), 3000);
+    };
+
+    const formatDate = (dateString) => {
+        return new Date(dateString).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+        });
+    };
+
+    const isPostedByUser = (job) => job.postedBy?._id === user?._id;
+
+    const hasApplied = (job) => {
+        return job.applicants?.some((applicant) => {
+            const applicantUser = applicant.user?._id || applicant.user || applicant._id || applicant;
+            return applicantUser?.toString() === user?._id;
+        });
     };
 
     const handleSearch = (e) => {
@@ -47,39 +74,51 @@ const JobBoard = () => {
             setJobs((prev) => prev.filter((j) => j._id !== jobId));
             showToast('Job deleted successfully');
         } catch (error) {
-            showToast('Failed to delete job');
+            showToast(error.response?.data?.message || 'Failed to delete job');
         }
     };
 
-    const handleApply = async (jobId) => {
+    const handleApply = async () => {
+        if (!applyJob) return;
+        setModalLoading(true);
         try {
-            const res = await api.post(`/jobs/${jobId}/apply`);
-            setJobs(prev => prev.map(j => j._id === jobId ? { ...j, applicants: res.data.applicants } : j));
-            showToast('Successfully expressed interest!');
+            const res = await api.post(`/jobs/${applyJob._id}/apply`, { coverNote });
+            setJobs((prev) => prev.map((job) => (
+                job._id === applyJob._id ? { ...job, applicants: res.data.applicants } : job
+            )));
+            setApplyJob(null);
+            setCoverNote('');
+            showToast('Application submitted');
         } catch (error) {
             showToast(error.response?.data?.message || 'Failed to apply');
+        } finally {
+            setModalLoading(false);
         }
     };
 
     const handleStatusUpdate = async (jobId, status) => {
         try {
             await api.put(`/jobs/${jobId}/status`, { status });
-            setJobs(prev => prev.map(j => j._id === jobId ? { ...j, status } : j));
+            setJobs((prev) => prev.map((job) => (job._id === jobId ? { ...job, status } : job)));
             showToast(`Job ${status} successfully`);
         } catch (error) {
-            showToast('Failed to update status');
+            showToast(error.response?.data?.message || 'Failed to update status');
         }
     };
 
-    const showToast = (msg) => {
-        setToast(msg);
-        setTimeout(() => setToast(''), 3000);
-    };
-
-    const formatDate = (dateString) => {
-        return new Date(dateString).toLocaleDateString('en-US', {
-            month: 'short', day: 'numeric', year: 'numeric'
-        });
+    const openApplicants = async (job) => {
+        setApplicantsJob(job);
+        setApplicants([]);
+        setModalLoading(true);
+        try {
+            const res = await api.get(`/jobs/${job._id}/applicants`);
+            setApplicants(res.data.applicants);
+        } catch (error) {
+            showToast(error.response?.data?.message || 'Failed to load applicants');
+            setApplicantsJob(null);
+        } finally {
+            setModalLoading(false);
+        }
     };
 
     return (
@@ -87,8 +126,8 @@ const JobBoard = () => {
             {toast && <div className="toast-notification">{toast}</div>}
 
             <div className="page-hero">
-                <h1>💼 Job & Internship Board</h1>
-                <p>Discover opportunities shared by our alumni network.</p>
+                <h1>Job & Internship Board</h1>
+                <p>Discover opportunities shared by the alumni network.</p>
                 {(user?.role === 'alumni' || user?.role === 'admin') && (
                     <Link to="/jobs/post" className="btn btn-primary">+ Post a Job</Link>
                 )}
@@ -102,11 +141,7 @@ const JobBoard = () => {
                     onChange={(e) => setSearch(e.target.value)}
                     className="search-input"
                 />
-                <select 
-                    value={type} 
-                    onChange={(e) => { setType(e.target.value); setPage(1); }}
-                    className="filter-input"
-                >
+                <select value={type} onChange={(e) => { setType(e.target.value); setPage(1); }} className="filter-input">
                     <option value="">All Types</option>
                     <option value="Full-time">Full-time</option>
                     <option value="Part-time">Part-time</option>
@@ -120,112 +155,121 @@ const JobBoard = () => {
             {loading ? (
                 <div className="loading-spinner"><div className="spinner"></div></div>
             ) : jobs.length === 0 ? (
-                <div className="empty-state">
-                    <span style={{ fontSize: '3rem' }}>📭</span>
-                    <p>No jobs found. Try adjusting your filters.</p>
-                </div>
+                <div className="empty-state"><p>No jobs found. Try adjusting your filters.</p></div>
             ) : (
                 <div className="jobs-list" style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    {jobs.map((job) => (
-                        <div key={job._id} className="job-card" style={{ background: 'white', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-sm)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-                                <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
-                                        <h3 style={{ fontSize: '1.25rem', color: 'var(--text-main)', margin: 0 }}>{job.title}</h3>
-                                        {(user?.role === 'admin' || user?._id === job.postedBy?._id) && job.status && (
-                                            <span style={{ 
-                                                display: 'inline-block', 
-                                                padding: '0.15rem 0.5rem', 
-                                                borderRadius: '4px', 
-                                                fontSize: '0.7rem', 
-                                                fontWeight: 'bold',
-                                                marginLeft: '0.75rem',
-                                                backgroundColor: job.status === 'approved' ? '#d1fae5' : job.status === 'rejected' ? '#fee2e2' : '#fef3c7',
-                                                color: job.status === 'approved' ? '#065f46' : job.status === 'rejected' ? '#991b1b' : '#92400e'
-                                            }}>
-                                                {job.status.toUpperCase()}
-                                            </span>
+                    {jobs.map((job) => {
+                        const canViewApplicants = user?.role === 'admin' || isPostedByUser(job);
+                        const applicantCount = job.applicants?.length || 0;
+                        return (
+                            <div key={job._id} className="job-card" style={{ background: '#0f0c29', color: 'white', padding: '1.5rem', borderRadius: '0.75rem', border: '1px solid rgba(167,139,250,0.25)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                                    <div>
+                                        <h3 style={{ margin: 0, color: '#fff' }}>{job.title}</h3>
+                                        <p style={{ color: '#a78bfa', margin: '0.5rem 0' }}>{job.company} - {job.location} - {job.type}</p>
+                                    </div>
+                                    <span style={{ color: '#c4b5fd' }}>Posted {formatDate(job.createdAt)}</span>
+                                </div>
+
+                                {(user?.role === 'admin' || isPostedByUser(job)) && job.status && (
+                                    <span style={{ display: 'inline-block', margin: '0.5rem 0 1rem', padding: '0.25rem 0.6rem', borderRadius: '6px', background: job.status === 'approved' ? '#10b981' : job.status === 'rejected' ? '#ef4444' : '#f59e0b', color: 'white', fontSize: '0.75rem', fontWeight: 700 }}>
+                                        {job.status.toUpperCase()}
+                                    </span>
+                                )}
+
+                                <p style={{ whiteSpace: 'pre-wrap', color: '#e5e7eb' }}>{job.description}</p>
+                                <strong>Requirements</strong>
+                                <p style={{ whiteSpace: 'pre-wrap', color: '#d1d5db' }}>{job.requirements}</p>
+
+                                {user?.role === 'admin' && job.status === 'pending' && (
+                                    <div style={{ display: 'flex', gap: '0.75rem', margin: '1rem 0' }}>
+                                        <button onClick={() => handleStatusUpdate(job._id, 'approved')} className="btn btn-success btn-sm">Approve</button>
+                                        <button onClick={() => handleStatusUpdate(job._id, 'rejected')} className="btn btn-danger btn-sm">Reject</button>
+                                    </div>
+                                )}
+
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                                    <span style={{ fontWeight: 700 }}>{job.salary ? `Salary: ${job.salary}` : 'Salary: Not specified'}</span>
+                                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                                        {job.link && <a href={job.link} target="_blank" rel="noopener noreferrer" className="btn btn-outline">External Link</a>}
+                                        {user?.role === 'student' && job.status === 'approved' && !isPostedByUser(job) && (
+                                            <button
+                                                onClick={() => setApplyJob(job)}
+                                                disabled={hasApplied(job)}
+                                                className="btn btn-primary"
+                                                style={{ opacity: hasApplied(job) ? 0.6 : 1 }}
+                                            >
+                                                {hasApplied(job) ? 'Applied' : 'Apply'}
+                                            </button>
+                                        )}
+                                        {canViewApplicants && (
+                                            <button onClick={() => openApplicants(job)} className="btn btn-outline">
+                                                Applicants ({applicantCount})
+                                            </button>
+                                        )}
+                                        {canViewApplicants && (
+                                            <button onClick={() => handleDelete(job._id)} className="btn btn-outline" style={{ borderColor: '#ef4444', color: '#ef4444' }}>
+                                                Delete
+                                            </button>
                                         )}
                                     </div>
-                                    <div style={{ display: 'flex', gap: '1rem', color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                                        <span>🏢 {job.company}</span>
-                                        <span>📍 {job.location}</span>
-                                        <span style={{ color: 'var(--primary)', fontWeight: '600' }}>{job.type}</span>
-                                    </div>
-                                </div>
-                                <div style={{ textAlign: 'right' }}>
-                                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Posted on {formatDate(job.createdAt)}</span>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', justifyContent: 'flex-end' }}>
-                                        <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>
-                                            {job.postedBy?.name?.charAt(0)}
-                                        </div>
-                                        <span style={{ fontSize: '0.85rem' }}>{job.postedBy?.name}</span>
-                                    </div>
                                 </div>
                             </div>
-                            
-                            <p style={{ color: 'var(--text-body)', fontSize: '0.95rem', whiteSpace: 'pre-wrap', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid var(--border-subtle)' }}>
-                                {job.description}
-                            </p>
-
-                            <div style={{ marginBottom: '1.5rem' }}>
-                                <strong style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.5rem' }}>Requirements:</strong>
-                                <p style={{ color: 'var(--text-body)', fontSize: '0.9rem', whiteSpace: 'pre-wrap' }}>{job.requirements}</p>
-                            </div>
-
-                            {user?.role === 'admin' && job.status === 'pending' && (
-                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                                    <strong style={{ alignSelf: 'center', marginRight: 'auto', fontSize: '0.9rem' }}>Admin Action Required:</strong>
-                                    <button onClick={() => handleStatusUpdate(job._id, 'approved')} className="btn btn-success btn-sm">Approve</button>
-                                    <button onClick={() => handleStatusUpdate(job._id, 'rejected')} className="btn btn-danger btn-sm">Reject</button>
-                                </div>
-                            )}
-
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                                <span style={{ fontWeight: '600', color: 'var(--text-main)' }}>
-                                    {job.salary ? `💰 ${job.salary}` : 'Salary: Not specified'}
-                                </span>
-                                
-                                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                                    {(user?._id === job.postedBy?._id || user?.role === 'admin') && (
-                                        <button onClick={() => handleDelete(job._id)} className="btn btn-outline" style={{ borderColor: 'var(--danger)', color: 'var(--danger)', padding: '0.5rem 1rem' }}>
-                                            Delete
-                                        </button>
-                                    )}
-                                    
-                                    {/* Application Actions */}
-                                    {job.link && (
-                                        <a href={job.link} target="_blank" rel="noopener noreferrer" className="btn btn-outline" style={{ padding: '0.5rem 1.5rem' }}>
-                                            External Link
-                                        </a>
-                                    )}
-                                    {user?.role === 'student' && job.status === 'approved' && (
-                                        <button 
-                                            onClick={() => handleApply(job._id)} 
-                                            disabled={job.applicants?.includes(user._id)} 
-                                            className="btn btn-primary" 
-                                            style={{ padding: '0.5rem 1.5rem', opacity: job.applicants?.includes(user._id) ? 0.6 : 1 }}
-                                        >
-                                            {job.applicants?.includes(user._id) ? 'Applied ✓' : 'Express Interest'}
-                                        </button>
-                                    )}
-                                    {user?.role === 'alumni' && job.applicants?.length > 0 && user?._id === job.postedBy?._id && (
-                                        <div style={{ alignSelf: 'center', fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 'bold' }}>
-                                            {job.applicants.length} {job.applicants.length === 1 ? 'Applicant' : 'Applicants'}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
 
                     {totalPages > 1 && (
                         <div className="pagination" style={{ marginTop: '2rem' }}>
-                            <button className="btn btn-outline btn-sm" disabled={page === 1} onClick={() => setPage(p => p - 1)}>← Prev</button>
+                            <button className="btn btn-outline btn-sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Prev</button>
                             <span className="page-info">Page {page} of {totalPages}</span>
-                            <button className="btn btn-outline btn-sm" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>Next →</button>
+                            <button className="btn btn-outline btn-sm" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}>Next</button>
                         </div>
                     )}
+                </div>
+            )}
+
+            {applyJob && (
+                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(15,12,41,0.78)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: '1rem' }}>
+                    <div style={{ width: 'min(520px, 100%)', background: '#0f0c29', color: 'white', border: '1px solid rgba(167,139,250,0.35)', borderRadius: '0.75rem', padding: '1.5rem' }}>
+                        <h3 style={{ marginTop: 0 }}>Apply to {applyJob.title}</h3>
+                        <label htmlFor="coverNote">Cover note (optional)</label>
+                        <textarea id="coverNote" rows="5" maxLength="500" value={coverNote} onChange={(e) => setCoverNote(e.target.value)} style={{ width: '100%', marginTop: '0.5rem' }} />
+                        <p style={{ color: '#a78bfa', fontSize: '0.85rem' }}>{coverNote.length}/500</p>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                            <button className="btn btn-outline" onClick={() => setApplyJob(null)}>Cancel</button>
+                            <button className="btn btn-primary" onClick={handleApply} disabled={modalLoading}>{modalLoading ? 'Applying...' : 'Confirm Apply'}</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {applicantsJob && (
+                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(15,12,41,0.78)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: '1rem' }}>
+                    <div style={{ width: 'min(640px, 100%)', maxHeight: '80vh', overflowY: 'auto', background: '#0f0c29', color: 'white', border: '1px solid rgba(167,139,250,0.35)', borderRadius: '0.75rem', padding: '1.5rem' }}>
+                        <h3 style={{ marginTop: 0 }}>Applicants for {applicantsJob.title}</h3>
+                        {modalLoading ? (
+                            <p>Loading applicants...</p>
+                        ) : applicants.length === 0 ? (
+                            <p style={{ color: '#a78bfa' }}>No applicants yet.</p>
+                        ) : (
+                            applicants.map((applicant) => (
+                                <div key={applicant.user?._id || applicant.appliedAt} style={{ borderTop: '1px solid rgba(167,139,250,0.25)', padding: '1rem 0' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        {applicant.user?.avatar && <img src={applicant.user.avatar} alt={applicant.user.name} style={{ width: 40, height: 40, borderRadius: '50%' }} />}
+                                        <div>
+                                            <strong>{applicant.user?.name}</strong>
+                                            <p style={{ margin: 0, color: '#a78bfa' }}>{applicant.user?.course || 'Course not provided'} - {applicant.user?.email}</p>
+                                        </div>
+                                    </div>
+                                    <p style={{ color: '#d1d5db' }}>{applicant.coverNote || 'No cover note provided.'}</p>
+                                    <span style={{ color: '#a78bfa', fontSize: '0.85rem' }}>Applied {formatDate(applicant.appliedAt)}</span>
+                                </div>
+                            ))
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <button className="btn btn-primary" onClick={() => setApplicantsJob(null)}>Close</button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

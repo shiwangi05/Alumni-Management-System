@@ -127,21 +127,38 @@ exports.deleteJob = async (req, res) => {
 // @access  Private (Student)
 exports.applyToJob = async (req, res) => {
     try {
+        const { coverNote = '' } = req.body;
         const job = await JobPost.findById(req.params.id);
         if (!job) return res.status(404).json({ message: 'Job not found' });
 
-        if (job.applicants.includes(req.user._id)) {
+        if (!job.isActive || job.status !== 'approved') {
+            return res.status(400).json({ message: 'This job is not open for applications' });
+        }
+
+        if (job.postedBy.toString() === req.user._id.toString()) {
+            return res.status(400).json({ message: 'You cannot apply to your own job post' });
+        }
+
+        const hasApplied = job.applicants.some((applicant) => {
+            const applicantUser = applicant.user || applicant;
+            return applicantUser.toString() === req.user._id.toString();
+        });
+
+        if (hasApplied) {
             return res.status(400).json({ message: 'You have already applied' });
         }
 
-        job.applicants.push(req.user._id);
+        job.applicants.push({
+            user: req.user._id,
+            coverNote,
+        });
         await job.save();
 
         const notification = await Notification.create({
             recipient: job.postedBy,
             sender: req.user._id,
             type: 'system',
-            content: `${req.user.name} expressed interest in: ${job.title}`,
+            content: `${req.user.name} applied to: ${job.title}`,
             link: '/jobs'
         });
 
@@ -151,6 +168,32 @@ exports.applyToJob = async (req, res) => {
         }
 
         res.json({ message: 'Successfully applied', applicants: job.applicants });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get applicants for a job post
+// @route   GET /api/jobs/:id/applicants
+// @access  Private (Poster, Admin)
+exports.getJobApplicants = async (req, res) => {
+    try {
+        const job = await JobPost.findById(req.params.id)
+            .populate('applicants.user', 'name avatar course email');
+
+        if (!job) return res.status(404).json({ message: 'Job not found' });
+
+        if (job.postedBy.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+            return res.status(403).json({ message: 'Not authorized to view applicants' });
+        }
+
+        res.json({
+            applicants: job.applicants.map((applicant) => ({
+                user: applicant.user,
+                appliedAt: applicant.appliedAt,
+                coverNote: applicant.coverNote || '',
+            })),
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

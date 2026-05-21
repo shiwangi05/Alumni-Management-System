@@ -1,6 +1,7 @@
 const MentorshipRequest = require('../models/MentorshipRequest');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const Message = require('../models/Message');
 const { sendMentorshipStatusEmail } = require('../utils/email');
 
 // @desc    Create mentorship request (Student → Alumni)
@@ -166,11 +167,36 @@ exports.endMentorship = async (req, res) => {
         // Delete the mentorship request
         await MentorshipRequest.findByIdAndDelete(req.params.id);
 
-        // Optionally, delete all messages associated with this request
-        const Message = require('../models/Message');
         await Message.deleteMany({ mentorshipRequest: req.params.id });
 
         res.json({ message: 'Mentorship and chat history ended successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Delete only chat messages for a mentorship
+// @route   DELETE /api/mentorship/:id/messages-only
+// @access  Private (student, alumni participant)
+exports.clearMentorshipMessages = async (req, res) => {
+    try {
+        const request = await MentorshipRequest.findById(req.params.id);
+
+        if (!request) {
+            return res.status(404).json({ message: 'Mentorship request not found' });
+        }
+
+        const isParticipant =
+            request.student.toString() === req.user._id.toString() ||
+            request.alumni.toString() === req.user._id.toString();
+
+        if (!isParticipant) {
+            return res.status(403).json({ message: 'You are not authorized to clear this chat' });
+        }
+
+        await Message.deleteMany({ mentorshipRequest: req.params.id });
+
+        res.json({ message: 'Chat history deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

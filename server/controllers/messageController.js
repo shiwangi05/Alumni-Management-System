@@ -1,6 +1,7 @@
 const Message = require('../models/Message');
 const MentorshipRequest = require('../models/MentorshipRequest');
 const Notification = require('../models/Notification');
+const mongoose = require('mongoose');
 
 // @desc    Send a message (only if mentorship is accepted)
 // @route   POST /api/messages
@@ -115,35 +116,84 @@ exports.getConversation = async (req, res) => {
 // @access  Private (student, alumni)
 exports.getMyConversations = async (req, res) => {
     try {
+        const userId = new mongoose.Types.ObjectId(req.user._id);
         const query =
             req.user.role === 'student'
-                ? { student: req.user._id, status: 'accepted' }
-                : { alumni: req.user._id, status: 'accepted' };
+                ? { student: userId, status: 'accepted' }
+                : { alumni: userId, status: 'accepted' };
 
-        const mentorships = await MentorshipRequest.find(query)
-            .populate('student', 'name email avatar course')
-            .populate('alumni', 'name email avatar company jobTitle');
-
-        // Get last message and unread count for each conversation
-        const conversations = await Promise.all(
-            mentorships.map(async (m) => {
-                const lastMessage = await Message.findOne({
-                    mentorshipRequest: m._id,
-                }).sort({ createdAt: -1 });
-
-                const unreadCount = await Message.countDocuments({
-                    mentorshipRequest: m._id,
-                    receiver: req.user._id,
-                    read: false,
-                });
-
-                return {
-                    mentorship: m,
-                    lastMessage,
-                    unreadCount,
-                };
-            })
-        );
+        const conversations = await MentorshipRequest.aggregate([
+            { $match: query },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'student',
+                    foreignField: '_id',
+                    as: 'student',
+                    pipeline: [{ $project: { name: 1, email: 1, avatar: 1, course: 1 } }],
+                },
+            },
+            { $unwind: '$student' },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'alumni',
+                    foreignField: '_id',
+                    as: 'alumni',
+                    pipeline: [{ $project: { name: 1, email: 1, avatar: 1, company: 1, jobTitle: 1 } }],
+                },
+            },
+            { $unwind: '$alumni' },
+            {
+                $lookup: {
+                    from: 'messages',
+                    let: { mentorshipId: '$_id' },
+                    pipeline: [
+                        { $match: { $expr: { $eq: ['$mentorshipRequest', '$$mentorshipId'] } } },
+                        { $sort: { createdAt: -1 } },
+                        { $limit: 1 },
+                    ],
+                    as: 'lastMessage',
+                },
+            },
+            {
+                $lookup: {
+                    from: 'messages',
+                    let: { mentorshipId: '$_id' },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $and: [
+                                        { $eq: ['$mentorshipRequest', '$$mentorshipId'] },
+                                        { $eq: ['$receiver', userId] },
+                                        { $eq: ['$read', false] },
+                                    ],
+                                },
+                            },
+                        },
+                        { $count: 'count' },
+                    ],
+                    as: 'unread',
+                },
+            },
+            {
+                $project: {
+                    mentorship: {
+                        _id: '$_id',
+                        student: '$student',
+                        alumni: '$alumni',
+                        message: '$message',
+                        status: '$status',
+                        createdAt: '$createdAt',
+                        updatedAt: '$updatedAt',
+                    },
+                    lastMessage: { $ifNull: [{ $arrayElemAt: ['$lastMessage', 0] }, null] },
+                    unreadCount: { $ifNull: [{ $arrayElemAt: ['$unread.count', 0] }, 0] },
+                },
+            },
+            { $sort: { 'mentorship.updatedAt': -1 } },
+        ]);
 
         res.json(conversations);
     } catch (error) {

@@ -8,6 +8,7 @@ const MentorshipRequests = () => {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all');
+    const [endingRequest, setEndingRequest] = useState(null);
 
     useEffect(() => {
         fetchRequests();
@@ -31,6 +32,21 @@ const MentorshipRequests = () => {
         } catch (error) {
             alert(error.response?.data?.message || 'Action failed');
         }
+    };
+
+    const handleEndMentorship = async () => {
+        if (!endingRequest) return;
+        try {
+            await api.delete(`/mentorship/${endingRequest._id}`);
+            setEndingRequest(null);
+            fetchRequests();
+        } catch (error) {
+            alert(error.response?.data?.message || 'Could not end mentorship');
+        }
+    };
+
+    const getOtherPersonName = (req) => {
+        return user?.role === 'student' ? req.alumni?.name : req.student?.name;
     };
 
     const filtered = filter === 'all' ? requests : requests.filter((r) => r.status === filter);
@@ -99,11 +115,33 @@ const MentorshipRequests = () => {
                                     </div>
                                 )}
                                 {req.status === 'accepted' && (
-                                    <Link to={`/chat/${req._id}`} className="btn btn-primary btn-sm">Chat</Link>
+                                    <div className="request-actions">
+                                        <Link to={`/chat/${req._id}`} className="btn btn-primary btn-sm">Chat</Link>
+                                        <button onClick={() => setEndingRequest(req)} className="btn btn-danger btn-sm">
+                                            End
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {endingRequest && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,12,41,0.78)', zIndex: 2000, display: 'grid', placeItems: 'center', padding: '1rem' }}>
+                    <div style={{ width: 'min(520px, 100%)', background: '#0f0c29', color: 'white', border: '1px solid rgba(167,139,250,0.35)', borderRadius: '0.75rem', padding: '1.5rem' }}>
+                        <h3 style={{ marginTop: 0 }}>End Mentorship?</h3>
+                        <p style={{ color: '#d1d5db', lineHeight: 1.6 }}>
+                            This will permanently delete your entire conversation history with {getOtherPersonName(endingRequest)}. This cannot be undone.
+                        </p>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+                            <button className="btn btn-outline" onClick={() => setEndingRequest(null)}>Cancel</button>
+                            <button className="btn btn-danger" style={{ background: '#ef4444', borderColor: '#ef4444' }} onClick={handleEndMentorship}>
+                                End Mentorship
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

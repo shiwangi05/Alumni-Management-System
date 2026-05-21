@@ -34,18 +34,20 @@ const Register = () => {
         setLoading(true);
 
         try {
-            const user = await register({
+            const result = await register({
                 name: formData.name,
                 email: formData.email,
                 password: formData.password,
                 role: formData.role,
             });
 
-            switch (user.role) {
-                case 'alumni': navigate('/alumni/dashboard'); break;
-                case 'student': navigate('/student/dashboard'); break;
-                default: navigate('/');
-            }
+            navigate('/verify-otp', {
+                state: {
+                    userId: result.userId,
+                    email: formData.email,
+                    role: formData.role,
+                },
+            });
         } catch (err) {
             setError(err.response?.data?.message || 'Registration failed');
         } finally {

@@ -91,6 +91,43 @@ const sendWelcomeEmail = async ({ name, email, role }) => {
 };
 
 /**
+ * Send email verification OTP
+ */
+const sendVerificationEmail = async ({ name, email, otp }) => {
+    try {
+        const transporter = await createTransporter();
+        const info = await transporter.sendMail({
+            from: `"AlumniConnect" <no-reply@alumniconnect.com>`,
+            to: email,
+            subject: 'Verify your AlumniConnect account',
+            html: `
+                <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width:600px; margin:0 auto; background:#0f0c29; color:#fff; border-radius:12px; overflow:hidden;">
+                    <div style="background:linear-gradient(135deg,#667eea,#764ba2); padding:36px 30px; text-align:center;">
+                        <h1 style="margin:0; font-size:28px;">AlumniConnect</h1>
+                        <p style="margin:8px 0 0; opacity:0.85;">Email verification</p>
+                    </div>
+                    <div style="padding:36px 30px;">
+                        <h2 style="color:#a78bfa;">Hello, ${name}!</h2>
+                        <p style="color:#c4b5fd; line-height:1.7;">Use this 6-digit OTP to verify your account. It expires in 15 minutes.</p>
+                        <div style="font-size:34px; letter-spacing:10px; font-weight:700; color:#fff; background:rgba(102,126,234,0.18); border:1px solid rgba(167,139,250,0.35); padding:18px; text-align:center; border-radius:10px;">
+                            ${otp}
+                        </div>
+                        <p style="color:#9ca3af; font-size:13px; margin-top:20px;">If you did not create this account, you can ignore this email.</p>
+                    </div>
+                </div>
+            `,
+        });
+
+        if (!process.env.EMAIL_USER) {
+            console.log(`Verification email preview: ${nodemailer.getTestMessageUrl(info)}`);
+        }
+    } catch (err) {
+        console.error('Email send error:', err.message);
+        throw new Error('Unable to send verification email');
+    }
+};
+
+/**
  * Send mentorship status update email to student
  */
 const sendMentorshipStatusEmail = async ({ studentEmail, studentName, alumniName, status }) => {
@@ -176,4 +213,4 @@ const sendEventRsvpEmail = async ({ userEmail, userName, eventTitle, eventDate, 
     }
 };
 
-module.exports = { sendWelcomeEmail, sendMentorshipStatusEmail, sendEventRsvpEmail };
+module.exports = { sendWelcomeEmail, sendVerificationEmail, sendMentorshipStatusEmail, sendEventRsvpEmail };

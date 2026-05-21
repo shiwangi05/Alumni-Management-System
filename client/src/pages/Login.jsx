@@ -27,6 +27,15 @@ const Login = () => {
                 default: navigate('/');
             }
         } catch (err) {
+            if (err.response?.status === 403 && err.response?.data?.userId) {
+                navigate('/verify-otp', {
+                    state: {
+                        userId: err.response.data.userId,
+                        email: formData.email,
+                    },
+                });
+                return;
+            }
             setError(err.response?.data?.message || 'Login failed');
         } finally {
             setLoading(false);

@@ -16,6 +16,9 @@ const Navbar = () => {
 
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [notificationPage, setNotificationPage] = useState(1);
+    const [notificationTotalPages, setNotificationTotalPages] = useState(1);
+    const [loadingMoreNotifications, setLoadingMoreNotifications] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const socket = useSocket();
@@ -23,14 +26,14 @@ const Navbar = () => {
 
     useEffect(() => {
         if (user) {
-            fetchNotifications();
+            fetchNotifications(1);
         }
     }, [user]);
 
     useEffect(() => {
         if (socket) {
             socket.on('new_notification', (newNotif) => {
-                setNotifications(prev => [newNotif, ...prev]);
+                setNotifications(prev => [newNotif, ...prev.filter((n) => n._id !== newNotif._id)]);
                 setUnreadCount(prev => prev + 1);
             });
         }
@@ -49,13 +52,22 @@ const Navbar = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const fetchNotifications = async () => {
+    const fetchNotifications = async (pageToLoad = 1) => {
         try {
-            const res = await api.get('/notifications');
-            setNotifications(res.data.notifications);
+            setLoadingMoreNotifications(pageToLoad > 1);
+            const res = await api.get(`/notifications?page=${pageToLoad}&limit=20`);
+            setNotifications(prev => (
+                pageToLoad === 1
+                    ? res.data.notifications
+                    : [...prev, ...res.data.notifications.filter((n) => !prev.some((existing) => existing._id === n._id))]
+            ));
             setUnreadCount(res.data.unreadCount);
+            setNotificationPage(res.data.page);
+            setNotificationTotalPages(res.data.totalPages);
         } catch (error) {
             console.error('Failed to fetch notifications', error);
+        } finally {
+            setLoadingMoreNotifications(false);
         }
     };
 
@@ -174,6 +186,17 @@ const Navbar = () => {
                                             </span>
                                         </div>
                                     ))
+                                )}
+                                {notificationPage < notificationTotalPages && (
+                                    <div style={{ padding: '0.75rem', textAlign: 'center' }}>
+                                        <button
+                                            onClick={() => fetchNotifications(notificationPage + 1)}
+                                            disabled={loadingMoreNotifications}
+                                            className="btn btn-outline btn-sm"
+                                        >
+                                            {loadingMoreNotifications ? 'Loading...' : 'Load more'}
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>

@@ -5,6 +5,7 @@ import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import VerifyOtp from './pages/VerifyOtp';
 import AlumniDashboard from './pages/AlumniDashboard';
 import AlumniProfile from './pages/AlumniProfile';
 import StudentDashboard from './pages/StudentDashboard';
@@ -49,6 +50,7 @@ function App() {
               {/* Public Routes */}
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/verify-otp" element={<VerifyOtp />} />
 
               {/* Home redirect */}
               <Route path="/" element={<HomeRedirect />} />

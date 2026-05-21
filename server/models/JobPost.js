@@ -49,10 +49,25 @@ const jobPostSchema = new mongoose.Schema(
             enum: ['pending', 'approved', 'rejected'],
             default: 'pending'
         },
-        applicants: [{
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
-        }],
+        applicants: [
+            {
+                user: {
+                    type: mongoose.Schema.Types.ObjectId,
+                    ref: 'User',
+                    required: true,
+                },
+                appliedAt: {
+                    type: Date,
+                    default: Date.now,
+                },
+                coverNote: {
+                    type: String,
+                    maxlength: 500,
+                    trim: true,
+                    default: '',
+                },
+            },
+        ],
         isActive: {
             type: Boolean,
             default: true,

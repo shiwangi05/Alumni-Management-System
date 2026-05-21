@@ -5,17 +5,28 @@ const Notification = require('../models/Notification');
 // @access  Private
 exports.getNotifications = async (req, res) => {
     try {
+        const page = Math.max(Number(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 50);
+        const query = { recipient: req.user._id };
+
+        const total = await Notification.countDocuments(query);
         const notifications = await Notification.find({ recipient: req.user._id })
             .populate('sender', 'name avatar')
             .sort({ createdAt: -1 })
-            .limit(20);
+            .skip((page - 1) * limit)
+            .limit(limit);
 
         const unreadCount = await Notification.countDocuments({
             recipient: req.user._id,
             isRead: false,
         });
 
-        res.json({ notifications, unreadCount });
+        res.json({
+            notifications,
+            unreadCount,
+            totalPages: Math.ceil(total / limit),
+            page,
+        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
