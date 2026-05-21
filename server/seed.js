@@ -19,12 +19,12 @@ const seedAdmin = async () => {
 
         const admin = await User.create({
             name: 'System Admin',
-            email: 'admin@alumni.com',
-            password: 'admin123',
+            email: 'shiwangi@gmail.com',
+            password: 'Shiwangi123$',
             role: 'admin',
         });
 
-        console.log(`Admin created: ${admin.email} / admin123`);
+        console.log(`Admin created: ${admin.email} / Shiwangi123$`);
         process.exit(0);
     } catch (error) {
         console.error('Seed failed:', error.message);
