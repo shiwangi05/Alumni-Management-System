@@ -3,7 +3,6 @@ import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
 
 const SocketContext = createContext();
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 export const useSocket = () => useContext(SocketContext);
 
@@ -12,7 +11,7 @@ export const SocketProvider = ({ children }) => {
     const { user } = useAuth();
 
     useEffect(() => {
-        const newSocket = io(SOCKET_URL);
+        const newSocket = io(import.meta.env.VITE_SOCKET_URL ?? 'https://alumni-management-system-3.onrender.com');
         setSocket(newSocket);
 
         return () => newSocket.close();
