@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import api from '../utils/api';
 
 const COLORS = ['#4f46e5', '#ec4899', '#f59e0b', '#10b981'];
@@ -24,8 +22,12 @@ const AdminAnalytics = () => {
         fetchAnalytics();
     }, []);
 
-    const handleExportPDF = () => {
+    const handleExportPDF = async () => {
         if (!data) return;
+        const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+            import('jspdf'),
+            import('jspdf-autotable'),
+        ]);
         const doc = new jsPDF();
 
         // Title
@@ -96,11 +98,11 @@ const AdminAnalytics = () => {
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1.5rem' }}>
             <div className="page-hero" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
-                    <h1>📈 Platform Analytics</h1>
+                    <h1>Platform Analytics</h1>
                     <p>Visual insights into platform usage, growth, and engagement.</p>
                 </div>
                 <button onClick={handleExportPDF} className="btn btn-primary" style={{ padding: '0.75rem 1.5rem', fontWeight: 'bold' }}>
-                    📄 Export PDF Report
+                    Export PDF Report
                 </button>
             </div>
 

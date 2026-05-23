@@ -11,7 +11,7 @@ export const SocketProvider = ({ children }) => {
     const { user } = useAuth();
 
     useEffect(() => {
-        const newSocket = io(import.meta.env.VITE_SOCKET_URL ?? 'https://alumni-management-system-3.onrender.com');
+        const newSocket = io(import.meta.env.VITE_SOCKET_URL ?? 'http://localhost:5000');
         setSocket(newSocket);
 
         return () => newSocket.close();

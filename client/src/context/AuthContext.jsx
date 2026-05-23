@@ -58,21 +58,6 @@ export const AuthProvider = ({ children }) => {
         return userData;
     };
 
-    const verifyOtp = async (userId, otp) => {
-        const res = await api.post('/auth/verify-otp', { userId, otp });
-        const { token: newToken, ...userData } = res.data;
-        localStorage.setItem('token', newToken);
-        localStorage.setItem('user', JSON.stringify(userData));
-        setToken(newToken);
-        setUser(userData);
-        return userData;
-    };
-
-    const resendOtp = async (userId) => {
-        const res = await api.post('/auth/resend-otp', { userId });
-        return res.data;
-    };
-
     const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -81,7 +66,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, token, loading, login, register, verifyOtp, resendOtp, logout, loadUser }}>
+        <AuthContext.Provider value={{ user, token, loading, login, register, logout, loadUser }}>
             {children}
         </AuthContext.Provider>
     );

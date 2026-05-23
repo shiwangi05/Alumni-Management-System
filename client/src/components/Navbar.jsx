@@ -108,17 +108,18 @@ const Navbar = () => {
         <nav className="navbar">
             <div className="navbar-brand">
                 <Link to={getDashboardLink()}>
-                    <span className="brand-icon">🎓</span>
+                    <span className="brand-icon">AC</span>
                     <span className="brand-text">AlumniConnect</span>
                 </Link>
             </div>
 
-            <button 
-                className="mobile-menu-btn" 
+            <button
+                className="mobile-menu-btn"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', display: 'none' }}
+                style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', display: 'none' }}
+                aria-label="Toggle navigation"
             >
-                {mobileMenuOpen ? '✖' : '☰'}
+                {mobileMenuOpen ? 'Close' : 'Menu'}
             </button>
 
             <div className={`navbar-links ${mobileMenuOpen ? 'mobile-active' : ''}`}>
@@ -152,13 +153,14 @@ const Navbar = () => {
 
             <div className="navbar-user" style={{ display: 'flex', alignItems: 'center', gap: '1rem', position: 'relative' }}>
                 <div ref={dropdownRef} style={{ position: 'relative' }}>
-                    <button 
+                    <button
                         onClick={() => setShowDropdown(!showDropdown)}
-                        style={{ background: 'none', border: 'none', fontSize: '1.25rem', cursor: 'pointer', position: 'relative' }}
+                        style={{ background: 'none', border: 'none', fontSize: '0.9rem', cursor: 'pointer', position: 'relative', fontWeight: 700 }}
+                        aria-label="Notifications"
                     >
-                        🔔
+                        Alerts
                         {unreadCount > 0 && (
-                            <span style={{ position: 'absolute', top: '-5px', right: '-8px', background: 'var(--danger)', color: 'white', borderRadius: '50%', padding: '0.1rem 0.4rem', fontSize: '0.7rem', fontWeight: 'bold' }}>
+                            <span style={{ position: 'absolute', top: '-8px', right: '-12px', background: 'var(--danger)', color: 'white', borderRadius: '50%', padding: '0.1rem 0.4rem', fontSize: '0.7rem', fontWeight: 'bold' }}>
                                 {unreadCount}
                             </span>
                         )}
@@ -177,7 +179,7 @@ const Navbar = () => {
                                     <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>No notifications</div>
                                 ) : (
                                     notifications.map(n => (
-                                        <div key={n._id} 
+                                        <div key={n._id}
                                             onClick={() => !n.isRead && markAsRead(n._id)}
                                             style={{ padding: '1rem', borderBottom: '1px solid var(--border-subtle)', background: n.isRead ? 'white' : 'var(--bg-body)', cursor: 'pointer', transition: 'background 0.2s' }}>
                                             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-main)' }}>{n.content}</p>

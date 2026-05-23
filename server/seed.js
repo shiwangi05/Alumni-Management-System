@@ -22,9 +22,6 @@ const seedAdmin = async () => {
             adminExists.email = ADMIN_EMAIL;
             adminExists.password = ADMIN_PASSWORD;
             adminExists.isVerified = true;
-            adminExists.verificationOTP = undefined;
-            adminExists.verificationOTPExpires = undefined;
-            adminExists.verificationOTPSentAt = undefined;
             await adminExists.save();
 
             console.log(`Admin updated: ${adminExists.email}`);

@@ -74,30 +74,19 @@ New backend route for future use:
 DELETE /api/mentorship/:id/messages-only
 ```
 
-### 6. Email OTP Verification
+### 6. Direct Registration/Login
 
 - Updated `server/models/User.js`.
 - Updated `server/controllers/authController.js`.
 - Updated `server/routes/auth.js`.
-- Updated `server/middleware/auth.js`.
 - Updated `server/utils/email.js`.
 - Updated `server/seed.js`.
 - Updated `client/src/context/AuthContext.jsx`.
 - Updated `client/src/pages/Register.jsx`.
 - Updated `client/src/pages/Login.jsx`.
 - Updated `client/src/App.jsx`.
-- Added `client/src/pages/VerifyOtp.jsx`.
 
-OTP support still exists in the codebase, but it is temporarily bypassed so production registration works before email is configured on Render. New users are created with `isVerified: true`, and registration returns the JWT immediately.
-
-New backend routes:
-
-```http
-POST /api/auth/verify-otp
-POST /api/auth/resend-otp
-```
-
-Protected routes no longer block unverified users while OTP is disabled.
+OTP verification has been removed from the active auth flow. New users are created with `isVerified: true`, registration returns the JWT immediately, and users are routed directly to their dashboard.
 
 ### 8. Render Trust Proxy
 
@@ -154,7 +143,7 @@ Make sure `server/.env` is not listed as a normal changed file. It should stay i
 
 ### 2. Run The Admin Seed Locally
 
-Because email verification now blocks unverified users, seeded admin accounts are marked verified.
+Seeded admin accounts are marked verified for consistency.
 
 ```powershell
 cd server
@@ -170,7 +159,7 @@ Admin updated: your-admin-email
 
 ### 3. Verify Existing Users In MongoDB
 
-Existing users created before the OTP change may not have `isVerified: true`. OTP is currently bypassed, so this is not blocking login right now, but setting it keeps the database consistent.
+Existing users created before the auth cleanup may not have `isVerified: true`. Setting it keeps the database consistent.
 
 For a local MongoDB database, run this in Mongo shell or MongoDB Compass:
 
@@ -178,7 +167,7 @@ For a local MongoDB database, run this in Mongo shell or MongoDB Compass:
 db.users.updateMany({}, { $set: { isVerified: true } })
 ```
 
-If you do not do this, old users may be blocked from protected routes.
+This is optional for login, but it keeps older records aligned with new registrations.
 
 ### 4. Set Frontend Environment Variables
 
@@ -271,7 +260,6 @@ Then deploy frontend because pages and environment-driven socket/API behavior ch
 - `client/src/pages/Login.jsx`
 - `client/src/pages/MentorshipRequests.jsx`
 - `client/src/pages/Register.jsx`
-- `client/src/pages/VerifyOtp.jsx`
 - `client/.env.example`
 - `client/.gitignore`
 

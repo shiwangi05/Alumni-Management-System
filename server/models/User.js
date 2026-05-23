@@ -50,19 +50,7 @@ const userSchema = new mongoose.Schema(
         phone: { type: String, trim: true },
         isVerified: {
             type: Boolean,
-            default: false,
-        },
-        verificationOTP: {
-            type: String,
-            select: false,
-        },
-        verificationOTPExpires: {
-            type: Date,
-            select: false,
-        },
-        verificationOTPSentAt: {
-            type: Date,
-            select: false,
+            default: true,
         },
     },
     { timestamps: true }

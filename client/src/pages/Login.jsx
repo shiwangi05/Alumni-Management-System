@@ -27,15 +27,6 @@ const Login = () => {
                 default: navigate('/');
             }
         } catch (err) {
-            if (err.response?.status === 403 && err.response?.data?.userId) {
-                navigate('/verify-otp', {
-                    state: {
-                        userId: err.response.data.userId,
-                        email: formData.email,
-                    },
-                });
-                return;
-            }
             setError(err.response?.data?.message || 'Login failed');
         } finally {
             setLoading(false);
@@ -46,28 +37,30 @@ const Login = () => {
         <div className="auth-page">
             <div className="auth-container">
                 <div className="auth-header">
-                    <Link to="/" style={{ 
-                        position: 'absolute', 
-                        top: '1.5rem', 
-                        left: '1.5rem', 
-                        textDecoration: 'none', 
-                        fontSize: '1.5rem',
+                    <Link to="/" style={{
+                        position: 'absolute',
+                        top: '1.5rem',
+                        left: '1.5rem',
+                        textDecoration: 'none',
+                        fontSize: '0.85rem',
                         background: 'rgba(255,255,255,0.8)',
-                        width: '40px',
+                        minWidth: '48px',
                         height: '40px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        borderRadius: '50%',
+                        borderRadius: '20px',
                         boxShadow: '0 2px 5px rgba(0,0,0,0.1)',
-                        transition: 'transform 0.2s'
-                    }} 
-                    onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                        transition: 'transform 0.2s',
+                        color: 'var(--primary)',
+                        fontWeight: 700,
+                    }}
+                    onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
                     onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
                     title="Back to Home">
-                        🏠
+                        Home
                     </Link>
-                    <span className="auth-icon">🎓</span>
+                    <span className="auth-icon">AC</span>
                     <h1>AlumniConnect</h1>
                     <p>Sign in to your account</p>
                 </div>
@@ -96,7 +89,7 @@ const Login = () => {
                             name="password"
                             value={formData.password}
                             onChange={handleChange}
-                            placeholder="••••••••"
+                            placeholder="********"
                             required
                         />
                     </div>
