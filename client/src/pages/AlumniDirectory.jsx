@@ -44,6 +44,12 @@ const AlumniDirectory = () => {
     };
 
     const handleSendRequest = async () => {
+        if (user?.role !== 'student') {
+            alert('Only students can request mentorship.');
+            setRequestModal(null);
+            setRequestMessage('');
+            return;
+        }
         if (!requestMessage.trim()) return;
         setSending(true);
         try {
